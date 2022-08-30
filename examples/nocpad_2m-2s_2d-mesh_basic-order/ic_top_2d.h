@@ -14,7 +14,7 @@
 #pragma hls_design top
 
 // Bundle of configuration parameters
-template <
+template<
   unsigned char MASTER_NUM_ , unsigned char SLAVE_NUM_,
   unsigned char RD_LANES_   , unsigned char WR_LANES_,
   unsigned char RREQ_PHITS_ , unsigned char RRESP_PHITS_,
@@ -24,6 +24,7 @@ template <
 struct cfg {
   static const unsigned char MASTER_NUM  = MASTER_NUM_;
   static const unsigned char SLAVE_NUM   = SLAVE_NUM_;
+  // LANE指示的是字节通道，即一个LANE用于传输一个字节。而使能信号也是相对于LANE来说的，故只需要一位就能指示该LANE是否有效
   static const unsigned char RD_LANES    = RD_LANES_;
   static const unsigned char WR_LANES    = WR_LANES_;
   static const unsigned char RREQ_PHITS  = RREQ_PHITS_;
@@ -54,19 +55,19 @@ public:
   sc_in <bool> rst_n;
   
   // IC's Address map
-  sc_in<sc_uint <32> >           addr_map[smpl_cfg::SLAVE_NUM][2]; // [SLAVE_NUM][0:begin, 1: End]
+  sc_in<sc_uint<32>>            addr_map[smpl_cfg::SLAVE_NUM][2]; // [SLAVE_NUM][0:begin, 1: End]
   
-  sc_signal< sc_uint<dnp::D_W> >  route_lut[2][1];
+  sc_signal<sc_uint<dnp::D_W>>  route_lut[2][1];
   
   // The Node IDs are passed to IFs as signals
-  sc_signal< sc_uint<dnp::S_W> > NODE_IDS_MASTER[smpl_cfg::MASTER_NUM];
-  sc_signal< sc_uint<dnp::S_W> > NODE_IDS_SLAVE[smpl_cfg::SLAVE_NUM];
+  sc_signal<sc_uint<dnp::S_W>> NODE_IDS_MASTER[smpl_cfg::MASTER_NUM];
+  sc_signal<sc_uint<dnp::S_W>> NODE_IDS_SLAVE[smpl_cfg::SLAVE_NUM];
   
-  sc_signal< sc_uint<dnp::D_W> > rtr_id_x_req[DIM_X];
-  sc_signal< sc_uint<dnp::D_W> > rtr_id_y_req[DIM_Y];
+  sc_signal<sc_uint<dnp::D_W>> rtr_id_x_req[DIM_X];
+  sc_signal<sc_uint<dnp::D_W>> rtr_id_y_req[DIM_Y];
   
-  sc_signal< sc_uint<dnp::D_W> > rtr_id_x_resp[DIM_X];
-  sc_signal< sc_uint<dnp::D_W> > rtr_id_y_resp[DIM_Y];
+  sc_signal<sc_uint<dnp::D_W>> rtr_id_x_resp[DIM_X];
+  sc_signal<sc_uint<dnp::D_W>> rtr_id_y_resp[DIM_Y];
   
   // MASTER Side AXI Channels
   Connections::In<axi4_::AddrPayload>   ar_in[smpl_cfg::MASTER_NUM];
@@ -86,8 +87,9 @@ public:
   
   //--- Internals ---//
   // --- Master/Slave IFs ---
-  axi_master_if < smpl_cfg > *master_if[smpl_cfg::MASTER_NUM];
-  axi_slave_if  < smpl_cfg > *slave_if[smpl_cfg::SLAVE_NUM];
+  // 每个master和slave都有自己独立的master_if或slave_if
+  axi_master_if<smpl_cfg> *master_if[smpl_cfg::MASTER_NUM];
+  axi_slave_if<smpl_cfg>  *slave_if[smpl_cfg::SLAVE_NUM];
   
   // Master IF Channels
   // Read Req/Resp
@@ -107,7 +109,8 @@ public:
   
   // --- NoC Channels ---
   // REQ Router + In/Out Channels
-  router_wh_top< 4+2, 4+2, rreq_flit_t, 5, DIM_X>   rtr_req[DIM_X][DIM_Y];
+  // question:4 + 2代表什么，为什么是4 + 2,1
+  router_wh_top<4 + 2, 4 + 2, rreq_flit_t, 5, DIM_X>  rtr_req[DIM_X][DIM_Y];
   
   Connections::Combinational<wreq_flit_t>    chan_hor_right_req[DIM_X+1][DIM_Y];
   Connections::Combinational<wreq_flit_t>    chan_hor_left_req[DIM_X+1][DIM_Y];
@@ -121,8 +124,8 @@ public:
   Connections::Combinational<wreq_flit_t>    chan_ej_rreq[DIM_X][DIM_Y];
   
   
-  // RESP Router + In/Out Channels
-  router_wh_top< 4+2, 4+2, rresp_flit_t, 5, DIM_X>  *rtr_resp[DIM_X][DIM_Y];
+  // RESP Router + In/Out Channels，这里选用的是XY路由选择算法，所以需要给每个机器都标上横纵坐标
+  router_wh_top<4 + 2, 4 + 2, rresp_flit_t, 5, DIM_X>  *rtr_resp[DIM_X][DIM_Y];
   
   Connections::Combinational<rreq_flit_t>    chan_hor_right_resp[DIM_X+1][DIM_Y];
   Connections::Combinational<rreq_flit_t>    chan_hor_left_resp[DIM_X+1][DIM_Y];
@@ -145,13 +148,13 @@ public:
     // ----------------- //
     // --- SLAVE-IFs --- //
     // ----------------- //
-    for(unsigned char j=0; j<smpl_cfg::SLAVE_NUM; ++j){
+    for (unsigned char j = 0; j < smpl_cfg::SLAVE_NUM; ++j){
       NODE_IDS_SLAVE[j] = j;
       
       unsigned col = j % DIM_X; // aka x dim
       unsigned row = j / DIM_X; // aka y dim
       
-      slave_if[j] = new axi_slave_if < smpl_cfg > (sc_gen_unique_name("Slave-if"));
+      slave_if[j] = new axi_slave_if<smpl_cfg>(sc_gen_unique_name("Slave-if"));
       slave_if[j]->clk(clk);
       slave_if[j]->rst_n(rst_n);
       
@@ -175,18 +178,18 @@ public:
     // ------------------------------ //
     // --- MASTER-IFs Connectivity--- //
     // ------------------------------ //
-    for (int i=0; i<smpl_cfg::MASTER_NUM; ++i) {
+    for (int i = 0; i < smpl_cfg::MASTER_NUM; ++i) {
       NODE_IDS_MASTER[i] = smpl_cfg::SLAVE_NUM + i;
   
       unsigned col = (smpl_cfg::SLAVE_NUM + i) % DIM_X; // aka x dim
       unsigned row = (smpl_cfg::SLAVE_NUM + i) / DIM_X; // aka y dim
       
-      master_if[i] = new axi_master_if < smpl_cfg > (sc_gen_unique_name("Master-if"));
+      master_if[i] = new axi_master_if<smpl_cfg>(sc_gen_unique_name("Master-if"));
       master_if[i]->clk(clk);
       master_if[i]->rst_n(rst_n);
       // Pass the address Map
-      for (int n=0; n<smpl_cfg::SLAVE_NUM; ++n) // Iterate Slaves
-        for (int s=0; s<2; ++s) // Iterate Begin-End Values
+      for (int n = 0; n < smpl_cfg::SLAVE_NUM; ++n) // Iterate Slaves
+        for (int s = 0; s < 2; ++s) // Iterate Begin-End Values
           master_if[i]->addr_map[n][s](addr_map[n][s]);
       
       master_if[i]->THIS_ID(NODE_IDS_MASTER[i]);
@@ -208,12 +211,12 @@ public:
     // -o-o-o-o-o-o-o-o-o- //
     // -o-o-o-o-o-o-o-o-o- //
     
-    for (int row=0; row<DIM_Y; ++row) rtr_id_y_req[row] = row;
-    for (int col=0; col<DIM_X; ++col) rtr_id_x_req[col] = col;
+    for (int row = 0; row < DIM_Y; ++row) rtr_id_y_req[row] = row;
+    for (int col = 0; col < DIM_X; ++col) rtr_id_x_req[col] = col;
     // --- NoC Connectivity --- //
     // Req/Fwd Routers
-    for(int row=0; row<DIM_Y; ++row) {
-      for (int col=0; col<DIM_X; ++col) {
+    for (int row = 0; row < DIM_Y; ++row) {
+      for (int col = 0; col < DIM_X; ++col) {
         
         rtr_req[col][row].clk(clk);
         rtr_req[col][row].rst_n(rst_n);
@@ -224,14 +227,14 @@ public:
         rtr_req[col][row].data_in[0](chan_hor_right_req[col][row]);
         rtr_req[col][row].data_out[0](chan_hor_left_req[col][row]);
 
-        rtr_req[col][row].data_in[1](chan_hor_left_req[col+1][row]);
-        rtr_req[col][row].data_out[1](chan_hor_right_req[col+1][row]);
+        rtr_req[col][row].data_in[1](chan_hor_left_req[col + 1][row]);
+        rtr_req[col][row].data_out[1](chan_hor_right_req[col + 1][row]);
         
         rtr_req[col][row].data_in[2](chan_ver_up_req[col][row]);
         rtr_req[col][row].data_out[2](chan_ver_down_req[col][row]);
         
-        rtr_req[col][row].data_in[3](chan_ver_down_req[col][row+1]);
-        rtr_req[col][row].data_out[3](chan_ver_up_req[col][row+1]);
+        rtr_req[col][row].data_in[3](chan_ver_down_req[col][row + 1]);
+        rtr_req[col][row].data_out[3](chan_ver_up_req[col][row + 1]);
   
         rtr_req[col][row].data_in[4](chan_inj_rreq[col][row]);
         rtr_req[col][row].data_out[4](chan_ej_rreq[col][row]);
@@ -241,12 +244,12 @@ public:
       }
     }
     
-    for (int row=0; row<DIM_Y; ++row) rtr_id_y_resp[row] = (row);
-    for (int col=0; col<DIM_X; ++col) rtr_id_x_resp[col] = (col);
+    for (int row = 0; row < DIM_Y; ++row) rtr_id_y_resp[row] = (row);
+    for (int col = 0; col < DIM_X; ++col) rtr_id_x_resp[col] = (col);
     // Resp/Bck Router
-    for(int row=0; row<DIM_Y; ++row) {
-      for (int col=0; col<DIM_X; ++col) {
-        rtr_resp[col][row] = new router_wh_top< 4+2, 4+2, rresp_flit_t, 5, DIM_X> (sc_gen_unique_name("Router-resp"));
+    for (int row = 0; row < DIM_Y; ++row) {
+      for (int col = 0; col < DIM_X; ++col) {
+        rtr_resp[col][row] = new router_wh_top<4 + 2, 4 + 2, rresp_flit_t, 5, DIM_X> (sc_gen_unique_name("Router-resp"));
         rtr_resp[col][row]->clk(clk);
         rtr_resp[col][row]->rst_n(rst_n);
         rtr_resp[col][row]->route_lut[0](route_lut[0][0]);

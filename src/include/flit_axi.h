@@ -12,7 +12,9 @@
 #endif
 
 //ToDo add this in thr flit class
-enum FLIT_TYPE {HEAD=0 , BODY=1, TAIL=3, SINGLE=2};
+// HEAD表示header flit，BODY表示body flit，TAIL表示tail flit
+// SINGLE表示该数据只有一个flit，不用区分header、body和tail
+enum FLIT_TYPE {HEAD = 0 , BODY = 1, TAIL = 3, SINGLE = 2};
 
 template<unsigned char PHIT_NUM>
 struct flit_dnp {
@@ -21,23 +23,24 @@ struct flit_dnp {
   //sc_uint<32> dbg_id;
   sc_uint<dnp::PHIT_W> data[PHIT_NUM];
   
-  static const int width = 2+2+(PHIT_NUM*dnp::PHIT_W); // Matchlib Marshaller requirement
+  static const int width = 2 + 2 + (PHIT_NUM * dnp::PHIT_W); // Matchlib Marshaller requirement
   
+  // 下面几个函数用于检索flit的基本信息（flit类型、源节点、目的节点）
   // helping functions to retrieve flit info (e.g. flit type, source, destination)
 	inline bool performs_rc()   { return ((type == HEAD) || (type == SINGLE)); }
 	inline bool resets_states() { return (type == TAIL); }
   
-  inline bool is_head()   {return (type==HEAD);};
-  inline bool is_tail()   {return (type==TAIL);};
-  inline bool is_body()   {return (type==BODY);};
-  inline bool is_single() {return (type==SINGLE);};
+  inline bool is_head()   {return (type == HEAD);};
+  inline bool is_tail()   {return (type == TAIL);};
+  inline bool is_body()   {return (type == BODY);};
+  inline bool is_single() {return (type == SINGLE);};
   
   // DNP fields set/getters
   inline sc_uint<dnp::D_W> get_dst()  const {return ((data[0] >> dnp::D_PTR) & ((1<<dnp::D_W)-1));};
   inline sc_uint<dnp::S_W> get_src()  const {return ((data[0] >> dnp::S_PTR) & ((1<<dnp::S_W)-1));};
   inline sc_uint<dnp::T_W> get_type() const {return ((data[0] >> dnp::T_PTR) & ((1<<dnp::T_W)-1));};
   inline sc_uint<dnp::V_W> get_vc()   const {return vc;};
-  inline sc_uint<dnp::Q_W> get_qos()   const {return ((data[0] >> dnp::Q_PTR) & ((1<<dnp::Q_W)-1));};
+  inline sc_uint<dnp::Q_W> get_qos()  const {return ((data[0] >> dnp::Q_PTR) & ((1<<dnp::Q_W)-1));};
   
   inline void set_dst(sc_uint<dnp::D_W>  dst ) { data[0] = (data[0].range(dnp::PHIT_W-1, dnp::D_PTR+dnp::D_W) << (dnp::D_PTR+dnp::D_W)) |
                                                                 (dst  << dnp::D_PTR) |

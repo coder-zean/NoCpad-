@@ -20,16 +20,17 @@ SC_MODULE(harness) {
   const int CLK_PERIOD = 5;
   const int GEN_CYCLES = 2 * 1000;
   
+  // 用于控制读写事务生成速度，逻辑在master中，应该是随机产生一个数，若该数比GEN_RATE_XX小，则产生一个读写事务
   const int GEN_RATE_RD[smpl_cfg::MASTER_NUM] = {40, 40};
   const int GEN_RATE_WR[smpl_cfg::MASTER_NUM] = {40, 40};
   
   const int STALL_RATE_RD = 00;
   const int STALL_RATE_WR = 00;
   
-  const int DRAIN_CYCLES = GEN_CYCLES/10;
+  const int DRAIN_CYCLES = GEN_CYCLES / 10;
   
   typedef typename axi::axi4<axi::cfg::standard_duth> axi4_;
-  typedef typename axi::AXI4_Encoding            enc_;
+  typedef typename axi::AXI4_Encoding                 enc_;
    
   sc_clock        clk;
   sc_signal<bool> rst_n;
@@ -41,17 +42,20 @@ SC_MODULE(harness) {
   // --- Scoreboards --- //
   // Scoreboards refer to the receiver of the queue.
   // I.e. the receiver checks what is expected to be received. Thus sender must take care to push Transactions to the appropriate queue
-  sc_mutex                                                       sb_lock;
-  std::vector< std::deque< msg_tb_wrap<axi4_::AddrPayload> > >   sb_rd_req_q;
-  std::vector< std::deque< msg_tb_wrap<axi4_::ReadPayload> > >   sb_rd_resp_q;
+  // 接收方检查期望接收的响应。因此，发送方必须注意将事务推送到适当的队列
+  // Scoreboards用于存放期望收到的结果
+  sc_mutex                                                   sb_lock;
+  std::vector<std::deque<msg_tb_wrap<axi4_::AddrPayload>>>   sb_rd_req_q;
+  std::vector<std::deque<msg_tb_wrap<axi4_::ReadPayload>>>   sb_rd_resp_q;
   
-  std::vector< std::deque< msg_tb_wrap<axi4_::AddrPayload> > >   sb_wr_req_q;
-  std::vector< std::deque< msg_tb_wrap<axi4_::WritePayload> > >  sb_wr_data_q;
-  std::vector< std::deque< msg_tb_wrap<axi4_::WRespPayload> > >  sb_wr_resp_q;
+  std::vector<std::deque<msg_tb_wrap<axi4_::AddrPayload>>>   sb_wr_req_q;
+  std::vector<std::deque<msg_tb_wrap<axi4_::WritePayload>>>  sb_wr_data_q;
+  std::vector<std::deque<msg_tb_wrap<axi4_::WRespPayload>>>  sb_wr_resp_q;
   
   axi_master<smpl_cfg::RD_LANES, smpl_cfg::RD_LANES, smpl_cfg::WR_LANES, smpl_cfg::WR_LANES, smpl_cfg::MASTER_NUM, smpl_cfg::SLAVE_NUM> *master[smpl_cfg::MASTER_NUM];
   axi_slave<smpl_cfg::RD_LANES, smpl_cfg::RD_LANES, smpl_cfg::WR_LANES, smpl_cfg::WR_LANES, smpl_cfg::MASTER_NUM, smpl_cfg::SLAVE_NUM>  *slave[smpl_cfg::SLAVE_NUM];
   
+  // Catapult定义的一个宏，应该类似于初始化一个ic_top模块
   CCS_DESIGN(ic_top) interconnect;
 
   // Master Side Channels
@@ -71,7 +75,7 @@ SC_MODULE(harness) {
   Connections::Combinational<axi4_::WRespPayload>  *slave_wr_resp[smpl_cfg::SLAVE_NUM];
   
   SC_CTOR(harness) :
-    clk("clock",10,SC_NS,0.5,0.0,SC_NS),
+    clk("clock", 10, SC_NS, 0.5, 0.0, SC_NS),
     rst_n("rst_n"),
     stop_gen("stop_gen"),
     
@@ -91,16 +95,16 @@ SC_MODULE(harness) {
     addr_map[1][1] = 0x2ffff;
     
     // Construct Components
-    for (int i=0; i<smpl_cfg::MASTER_NUM; ++i) {
+    for (int i = 0; i < smpl_cfg::MASTER_NUM; ++i) {
       master[i] = new axi_master<smpl_cfg::RD_LANES, smpl_cfg::RD_LANES, smpl_cfg::WR_LANES, smpl_cfg::WR_LANES, smpl_cfg::MASTER_NUM, smpl_cfg::SLAVE_NUM>(sc_gen_unique_name("master"));
       slave[i]  = new axi_slave <smpl_cfg::RD_LANES, smpl_cfg::RD_LANES, smpl_cfg::WR_LANES, smpl_cfg::WR_LANES, smpl_cfg::MASTER_NUM, smpl_cfg::SLAVE_NUM>(sc_gen_unique_name("slave"));
     
-      master_rd_req[i]  = new Connections::Combinational<axi4_::AddrPayload>  (sc_gen_unique_name("master_rd_req"));
-      master_rd_resp[i] = new Connections::Combinational<axi4_::ReadPayload>  (sc_gen_unique_name("master_rd_resp"));
+      master_rd_req[i]  = new Connections::Combinational<axi4_::AddrPayload>(sc_gen_unique_name("master_rd_req"));
+      master_rd_resp[i] = new Connections::Combinational<axi4_::ReadPayload>(sc_gen_unique_name("master_rd_resp"));
                                       
-      master_wr_req[i]  = new Connections::Combinational<axi4_::AddrPayload>   (sc_gen_unique_name("master_wr_req"));
-      master_wr_data[i] = new Connections::Combinational<axi4_::WritePayload>  (sc_gen_unique_name("master_wr_data"));
-      master_wr_resp[i] = new Connections::Combinational<axi4_::WRespPayload>  (sc_gen_unique_name("master_wr_resp"));
+      master_wr_req[i]  = new Connections::Combinational<axi4_::AddrPayload>(sc_gen_unique_name("master_wr_req"));
+      master_wr_data[i] = new Connections::Combinational<axi4_::WritePayload>(sc_gen_unique_name("master_wr_data"));
+      master_wr_resp[i] = new Connections::Combinational<axi4_::WRespPayload>(sc_gen_unique_name("master_wr_resp"));
                                       
                                       
       // Slave Side Channels
@@ -117,7 +121,7 @@ SC_MODULE(harness) {
     
     // BINDING - START
     // MASTER
-    for (int i=0; i<smpl_cfg::MASTER_NUM; ++i) {
+    for (int i = 0; i < smpl_cfg::MASTER_NUM; ++i) {
       master[i]->sb_lock      = &sb_lock;      // Scoreboard by Ref
       master[i]->sb_rd_req_q  = &sb_rd_req_q;  // Scoreboard by Ref
       master[i]->sb_rd_resp_q = &sb_rd_resp_q; // Scoreboard by Ref
@@ -133,7 +137,7 @@ SC_MODULE(harness) {
       
       master[i]->clk(clk);
       master[i]->rst_n(rst_n);
-      for(int j=0; j<smpl_cfg::SLAVE_NUM; ++j) {
+      for (int j = 0; j < smpl_cfg::SLAVE_NUM; ++j) {
         master[i]->addr_map[j][0](addr_map[j][0]);
         master[i]->addr_map[j][1](addr_map[j][1]);
       }
@@ -154,13 +158,14 @@ SC_MODULE(harness) {
       slave[i]->sb_wr_data_q = &sb_wr_data_q; // Scoreboard by Ref
       slave[i]->sb_wr_resp_q = &sb_wr_resp_q; // Scoreboard by Ref
       
+      // question:stall指什么
       slave[i]->STALL_RATE_RD = STALL_RATE_RD;
       slave[i]->STALL_RATE_WR = STALL_RATE_WR;
       slave[i]->SLAVE_ID      = i;
       slave[i]->stop_gen(stop_gen);
       slave[i]->clk(clk);
       slave[i]->rst_n(rst_n);
-      for(int j=0; j<smpl_cfg::SLAVE_NUM; ++j) {
+      for (int j = 0; j < smpl_cfg::SLAVE_NUM; ++j) {
         slave[i]->addr_map[j][0](addr_map[j][0]);
         slave[i]->addr_map[j][1](addr_map[j][1]);
       }
@@ -173,15 +178,15 @@ SC_MODULE(harness) {
       slave[i]->b_out(*slave_wr_resp[i]);
     }
     
-    // IC-TOP
+    // IC-TOP（互联器模块）
     interconnect.clk(clk);
     interconnect.rst_n(rst_n);
-    for(int j=0; j<smpl_cfg::SLAVE_NUM; ++j) {
+    for (int j = 0; j < smpl_cfg::SLAVE_NUM; ++j) {
       interconnect.addr_map[j][0](addr_map[j][0]);
       interconnect.addr_map[j][1](addr_map[j][1]);
     }
     // Master Side
-    for (int i=0; i<smpl_cfg::MASTER_NUM; ++i) {
+    for (int i = 0; i < smpl_cfg::MASTER_NUM; ++i) {
       interconnect.ar_in[i](*master_rd_req[i]);
       interconnect.r_out[i](*master_rd_resp[i]);
   
@@ -190,7 +195,7 @@ SC_MODULE(harness) {
       interconnect.b_out[i](*master_wr_resp[i]);
     }
     // Slave Side
-    for (int i=0; i<smpl_cfg::MASTER_NUM; ++i) {
+    for (int i = 0; i < smpl_cfg::MASTER_NUM; ++i) {
       interconnect.ar_out[i](*slave_rd_req[i]);
       interconnect.r_in[i](*slave_rd_resp[i]);
   
@@ -214,13 +219,13 @@ SC_MODULE(harness) {
     std::cout.flush();
     rst_n.write(false);
     stop_gen.write(true);
-    wait(CLK_PERIOD*2, SC_NS);
+    wait(CLK_PERIOD * 2, SC_NS);
     
     rst_n.write(true);
-    wait(CLK_PERIOD*2, SC_NS);
+    wait(CLK_PERIOD * 2, SC_NS);
     
     stop_gen.write(false);
-    wait(CLK_PERIOD*GEN_CYCLES, SC_NS);
+    wait(CLK_PERIOD * GEN_CYCLES, SC_NS);
     
     stop_gen.write(true);
     std::cout << "--- Transaction Generation Stopped @" << sc_time_stamp() << " ---\n";
@@ -232,21 +237,24 @@ SC_MODULE(harness) {
       int rd_req_remain  = 0;
       int rd_resp_remain = 0;
       
-      for(int i=0; i<smpl_cfg::SLAVE_NUM;  ++i) rd_req_remain  += sb_rd_req_q[i].size();
-      for(int i=0; i<smpl_cfg::MASTER_NUM; ++i) rd_resp_remain += sb_rd_resp_q[i].size();
+      // 遍历主机请求队列，查看还有多少读请求未处理
+      for (int i = 0; i < smpl_cfg::SLAVE_NUM;  ++i) rd_req_remain  += sb_rd_req_q[i].size();
+      // 遍历从机响应队列，查看还有多少读响应未处理
+      for (int i = 0; i < smpl_cfg::MASTER_NUM; ++i) rd_resp_remain += sb_rd_resp_q[i].size();
       
       int wr_req_remain  = 0;
       int wr_data_remain = 0;
       int wr_resp_remain = 0;
       
-      for(int i=0; i<smpl_cfg::SLAVE_NUM;++i)  wr_req_remain  += sb_wr_req_q[i].size();
-      for(int i=0; i<smpl_cfg::SLAVE_NUM;++i)  wr_data_remain += sb_wr_data_q[i].size();
-      for(int i=0; i<smpl_cfg::MASTER_NUM;++i) wr_resp_remain += sb_wr_resp_q[i].size();
+      for (int i = 0; i < smpl_cfg::SLAVE_NUM; ++i)  wr_req_remain  += sb_wr_req_q[i].size();
+      for (int i = 0; i < smpl_cfg::SLAVE_NUM; ++i)  wr_data_remain += sb_wr_data_q[i].size();
+      for (int i = 0; i < smpl_cfg::MASTER_NUM; ++i) wr_resp_remain += sb_wr_resp_q[i].size();
       
+      // 用于判断所有事务请求响应是否都已处理完成
       all_drained = (!rd_req_remain) && (!rd_resp_remain) && 
                     (!wr_req_remain) && (!wr_data_remain) && (!wr_resp_remain);
       
-      if(all_drained) {
+      if (all_drained) {
         std::cout << "--- Everything Drained @" << sc_time_stamp() << " ---\n";
       } else {
         std::cout << "--- Wait to drain";
@@ -261,7 +269,7 @@ SC_MODULE(harness) {
        // std::cout << "\n";
        // std::cout << __VERSION__ << "\n";
         */
-        wait(CLK_PERIOD*DRAIN_CYCLES, SC_NS);
+        wait(CLK_PERIOD * DRAIN_CYCLES, SC_NS);
       }
       std::cout.flush();
     } while(!all_drained);
@@ -285,7 +293,7 @@ SC_MODULE(harness) {
     int wr_resp_injected=0,  wr_resp_ejected=0;
     
     
-    for (int i=0; i<smpl_cfg::MASTER_NUM; ++i){
+    for (int i = 0; i < smpl_cfg::MASTER_NUM; ++i){
       // READS
       rd_req_generated  += master[i]->rd_trans_generated;
       rd_resp_generated += master[i]->rd_data_generated;
@@ -367,13 +375,13 @@ SC_MODULE(harness) {
     unsigned long long int rd_delay_full_sum_p_m[smpl_cfg::MASTER_NUM];
     unsigned long long int wr_trans_sum_p_m[smpl_cfg::MASTER_NUM];
     unsigned long long int rd_trans_sum_p_m[smpl_cfg::MASTER_NUM];
-    for(int i=0; i<smpl_cfg::SLAVE_NUM; ++i) {
+    for (int i = 0; i < smpl_cfg::SLAVE_NUM; ++i) {
       wr_delay_full_sum_p_m[i] = 0; rd_delay_full_sum_p_m[i] = 0;
       wr_trans_sum_p_m[i]      = 0; rd_trans_sum_p_m[i]      = 0;
     }
     
     
-    for (int i=0; i<smpl_cfg::MASTER_NUM; ++i) {
+    for (int i  =0; i < smpl_cfg::MASTER_NUM; ++i) {
       rd_delay_full_sum_p_m[i] += master[i]->rd_resp_delay;
       rd_trans_sum_p_m[i]      += master[i]->rd_resp_count;
       
@@ -395,7 +403,7 @@ SC_MODULE(harness) {
     unsigned long long int total_cycles = sc_time_stamp() / this_clk_period;
     
     std::cout << "Delay Per Master Slave(delay, Throughput) :\n";
-    for (int i=0; i<smpl_cfg::MASTER_NUM; i++) {
+    for (int i  =0; i < smpl_cfg::MASTER_NUM; i++) {
       std::cout << "M" << i << " RD: " << (rd_trans_sum_p_m[i] ? ((float)rd_delay_full_sum_p_m[i] / (float)rd_trans_sum_p_m[i]) : 0)
                                        << ", "
                                        << (rd_trans_sum_p_m[i] ? ((float)master[i]->rd_resp_data_count / (float)master[i]->last_rd_sinked_cycle) : 0)

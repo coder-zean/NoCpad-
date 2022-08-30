@@ -28,10 +28,10 @@
 //               - 5 : XY routing with merged RD/WR Req-Resp
 
 // ARB_C      : The arbiter type. Eg MATRIX, ROUND_ROBIN
-template< unsigned int IN_NUM, unsigned int OUT_NUM, typename flit_t, int DIM_X=0, int NODES=1, unsigned VCS=2, unsigned BUFF_DEPTH=3, unsigned RC_METHOD=3, arb_type arbiter_t=MATRIX >
+template<unsigned int IN_NUM, unsigned int OUT_NUM, typename flit_t, int DIM_X = 0, int NODES = 1, unsigned VCS = 2, unsigned BUFF_DEPTH = 3, unsigned RC_METHOD = 3, arb_type arbiter_t = MATRIX >
 SC_MODULE(rtr_vc) {
 public:
-  typedef sc_uint< nvhls::log2_ceil<VCS>::val > cr_t;
+  typedef sc_uint<nvhls::log2_ceil<VCS>::val> cr_t;
   
   sc_in_clk   clk;
   sc_in<bool> rst_n;
@@ -93,13 +93,13 @@ public:
     }
     // Reset per output state
     #pragma hls_unroll yes
-    per_o_rst:for(unsigned char j=0; j<OUT_NUM; ++j) {
+    per_o_rst:for(unsigned char j = 0; j < OUT_NUM; ++j) {
       data_out[j].Reset();
       cr_in[j].Reset();
       #pragma hls_unroll yes
       for(unsigned v=0; v<VCS; ++v) {
         out_available[j].val[v] = true;
-        credits[j][v] = onehot<BUFF_DEPTH+1>(1<<BUFF_DEPTH);
+        credits[j][v] = onehot<BUFF_DEPTH + 1>(1 << BUFF_DEPTH);
       }
     }
     

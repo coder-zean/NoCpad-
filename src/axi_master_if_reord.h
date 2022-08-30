@@ -201,14 +201,14 @@ SC_MODULE(axi_master_if) {
         
         this_dst = addr_lut_rd(this_req.addr);
         // Check if reorder may occur
-        bool may_reorder   = (sel_entry.sent>0) && (sel_entry.dst_last != this_dst);
+        bool may_reorder   = (sel_entry.sent > 0) && (sel_entry.dst_last != this_dst);
         bool through_reord = may_reorder || sel_entry.reorder;
         unsigned char wait_for =  sel_entry.sent;
         
         // Calculate the size of the transaction to check if its able to fit in the reorder buffer
-        unsigned int bytes_total = ((this_req.len+1)<<this_req.size.to_uint());
-        unsigned int phits_total = (bytes_total>>1) + 4; // each phit stores 2 bytes PLUS 2 header phits.
-        unsigned int flits_total = (phits_total & 0x3) ? (phits_total>>2)+1 : (phits_total>>2);
+        unsigned int bytes_total = ((this_req.len + 1) << this_req.size.to_uint());
+        unsigned int phits_total = (bytes_total >> 1) + 4; // each phit stores 2 bytes PLUS 2 header phits.
+        unsigned int flits_total = (phits_total & 0x3) ? (phits_total >> 2)+1 : (phits_total>>2);
         
         // All needed slots must available beforehand, thus wait until space has been freed or its no longer possible to be reordered
         while((through_reord && (rd_avail_reord_slots < flits_total)) || (total_rd_flits_sent>9)) {

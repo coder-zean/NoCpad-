@@ -3,7 +3,7 @@
 
 enum arb_type {FIXED, MATRIX, ROUND_ROBIN, WEIGHTED_RR, DEFICIT_RR, STRATIFIED_RR, PHASE};
 
-
+// 总裁器
 template<unsigned SIZE, arb_type ARB_TYPE, unsigned S=0, unsigned DOMAINS=0>
 class arbiter {
 
@@ -24,15 +24,14 @@ class arbiter<SIZE, FIXED, 0, 0> {
 private:
 
 public:
-  arbiter(){
-  }
+  arbiter(){}
   
-  unsigned arbitrate( bool inp[SIZE] ) {
+  unsigned arbitrate (bool inp[SIZE]) {
     unsigned grants;
     bool     found = false;
 
 #pragma hls_unroll yes
-    for (int i=0; i<SIZE; i++) {
+    for (int i = 0; i < SIZE; i++) {
       if (inp[i] && !found) {
         grants = i;
         found = true;
@@ -210,10 +209,10 @@ public:
 
     // Update table
     #pragma hls_unroll yes
-    for (int i=0; i<SIZE; ++i) { // Horizontal
+    for (int i = 0; i < SIZE; ++i) { // Horizontal
       #pragma hls_unroll yes
-      for (int j=0; j<SIZE; ++j) { // Vertical
-        if (i!=j) {
+      for (int j = 0; j < SIZE; ++j) { // Vertical
+        if (i != j) {
           if      (grants_o[i]) mat_v2[i][j] = true;
           else if (grants_o[j]) mat_v2[i][j] = false;
         }

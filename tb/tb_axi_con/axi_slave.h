@@ -28,7 +28,7 @@ SC_MODULE(axi_slave) {
   
 	sc_in<bool>  stop_gen; // Not Used
   
-  sc_in< sc_uint<32> >  addr_map[SLAVE_NUM][2];
+  sc_in<sc_uint<32>>  addr_map[SLAVE_NUM][2];
   
 	Connections::In<axi4_::AddrPayload>    ar_in;
 	Connections::Out<axi4_::ReadPayload>   r_out;
@@ -39,8 +39,8 @@ SC_MODULE(axi_slave) {
   
   // Scoreboard
   sc_mutex                                                       *sb_lock;
-  std::vector< std::deque< msg_tb_wrap<axi4_::AddrPayload> > >   *sb_rd_req_q;
-  std::vector< std::deque< msg_tb_wrap<axi4_::ReadPayload> > >   *sb_rd_resp_q; // This is Sized to Master LANES
+  std::vector<std::deque<msg_tb_wrap<axi4_::AddrPayload>>>   *sb_rd_req_q;
+  std::vector<std::deque<msg_tb_wrap<axi4_::ReadPayload>>>   *sb_rd_resp_q; // This is Sized to Master LANES
   
   std::vector< std::deque< msg_tb_wrap<axi4_::AddrPayload> > >   *sb_wr_req_q;
   std::vector< std::deque< msg_tb_wrap<axi4_::WritePayload> > >  *sb_wr_data_q;
@@ -289,7 +289,7 @@ bool axi_slave<RD_M_LANES, RD_S_LANES, WR_M_LANES, WR_S_LANES, MASTER_NUM, SLAVE
   while (j<(*sb_rd_req_q)[SLAVE_ID].size()){
     msg_tb_wrap< axi4_::AddrPayload > sb_req = (*sb_rd_req_q)[SLAVE_ID][j];
     
-    if ( eq_rd_req(rcv_rd_req, sb_req.dut_msg) ){
+    if (eq_rd_req(rcv_rd_req, sb_req.dut_msg)){
       (*sb_rd_req_q)[SLAVE_ID].erase((*sb_rd_req_q)[SLAVE_ID].begin()+j);
       found = true;
       break;
@@ -318,10 +318,10 @@ bool axi_slave<RD_M_LANES, RD_S_LANES, WR_M_LANES, WR_S_LANES, MASTER_NUM, SLAVE
   sb_lock->lock();
   bool found=false;
   unsigned int  j=0;
-  while (j<(*sb_wr_req_q)[SLAVE_ID].size()){
+  while (j<(*sb_wr_req_q)[SLAVE_ID].size()) {
     axi4_::AddrPayload sb_value = ((*sb_wr_req_q)[SLAVE_ID][j]).dut_msg;
     
-    if (eq_wr_req(rcv_wr_req, sb_value)){
+    if (eq_wr_req(rcv_wr_req, sb_value)) {
       (*sb_wr_req_q)[SLAVE_ID].erase((*sb_wr_req_q)[SLAVE_ID].begin()+j);
       found = true;
       break;
@@ -425,17 +425,14 @@ bool axi_slave<RD_M_LANES, RD_S_LANES, WR_M_LANES, WR_S_LANES, MASTER_NUM, SLAVE
 template <unsigned int RD_M_LANES, unsigned int RD_S_LANES, unsigned int WR_M_LANES, unsigned int WR_S_LANES, unsigned int MASTER_NUM, unsigned int SLAVE_NUM>
 bool axi_slave<RD_M_LANES, RD_S_LANES, WR_M_LANES, WR_S_LANES, MASTER_NUM, SLAVE_NUM>::eq_wr_data (axi4_::WritePayload &rcv_wr_data, axi4_::WritePayload &sb_wr_data) {
   bool equal = true;
-  unsigned tid_mask = (1<<dnp::ID_W)-1;
-  for(int i=0; i<WR_S_LANES; ++i) {
+  unsigned tid_mask = (1 << dnp::ID_W) - 1;
+  for (int i = 0; i < WR_S_LANES; ++i) {
     equal = equal && (((rcv_wr_data.wstrb >> i) & 1) == ((sb_wr_data.wstrb >> i) & 1));
     if ((rcv_wr_data.wstrb >> i) & 1) {
       equal = equal && (((rcv_wr_data.data >> (8 * i)) & 0xFF) == ((sb_wr_data.data >> (8 * i)) & 0xFF));
     }
   }
-  return (equal &&
-          rcv_wr_data.last  == sb_wr_data.last //  &&
-          //rcv_wr_data.wuser == sb_wr_data.wuser
-  );
+  return (equal && rcv_wr_data.last  == sb_wr_data.last );    // &&rcv_wr_data.wuser == sb_wr_data.wuser
 };
 
 

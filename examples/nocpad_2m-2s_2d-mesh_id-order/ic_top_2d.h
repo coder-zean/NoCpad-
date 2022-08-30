@@ -56,7 +56,7 @@ public:
   // IC's Address map
   sc_in<sc_uint <32> >           addr_map[smpl_cfg::SLAVE_NUM][2]; // [SLAVE_NUM][0:begin, 1: End]
   
-  sc_signal< sc_uint<dnp::D_W> >  route_lut[2][1];
+  sc_signal<sc_uint<dnp::D_W>>  route_lut[2][1];
   
   // The Node IDs are passed to IFs as signals
   sc_signal< sc_uint<dnp::S_W> > NODE_IDS_MASTER[smpl_cfg::MASTER_NUM];
@@ -107,7 +107,7 @@ public:
   
   // --- NoC Channels ---
   // REQ Router + In/Out Channels
-  router_wh_top< 4+2, 4+2, rreq_flit_t, 5, DIM_X>   rtr_req[DIM_X][DIM_Y];
+  router_wh_top<4+2, 4+2, rreq_flit_t, 5, DIM_X>   rtr_req[DIM_X][DIM_Y];
   
   Connections::Combinational<wreq_flit_t>    chan_hor_right_req[DIM_X+1][DIM_Y];
   Connections::Combinational<wreq_flit_t>    chan_hor_left_req[DIM_X+1][DIM_Y];

@@ -17,7 +17,8 @@ template <unsigned N> class onehot;
 //============================================================================//
 // Functions to statically assign bit vectors to/from arrays of chars and bools.
 //   Used as e workaround to avoid variables in .range() function of bit vectors
-template<class T, int BYTES> struct duth_fun {
+template<class T, int BYTES> 
+struct duth_fun {
   static inline void assign_char2bv(T& lhs, unsigned char *rhs) {
     duth_fun<T, BYTES-1>::assign_char2bv(lhs, rhs);
     lhs.range((BYTES*8)-1, ((BYTES-1)*8)) = rhs[BYTES-1];

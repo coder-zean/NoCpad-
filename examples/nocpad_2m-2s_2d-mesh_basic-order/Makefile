@@ -1,7 +1,7 @@
 CC = g++
 
 INCDIR ?=
-INCDIR += -I. -I$(SYSTEMC_HOME)/include -I$(BOOST_HOME)/include -I$(CATAPULT_HOME)/Mgc_home/shared/include -I$(MATCHLIB_HOME)/cmod/include
+INCDIR += -I. -I$(SYSTEMC_HOME)/include -I$(BOOST_HOME)/boost -I$(MATCHLIB_HOME)/cmod/include
 
 
 LIBDIR ?=
